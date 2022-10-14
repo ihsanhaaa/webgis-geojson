@@ -1,0 +1,129 @@
+@extends('layouts.test')
+
+@section('content')
+    <div class="container-fluid">
+        <h2>Halaman Coba Edit Point atau Poligon</h2>
+        <div id="map" class="col-md-12"></div>
+        <br>
+        <form id="formMhs" method="POST">
+            @csrf
+            <div class="container">
+                <div class="input-group mb-3">
+                    <input type="text" name="name" id="name" class="form-control" placeholder="Name"
+                        aria-describedby="basic-addon1">
+                </div>
+                <div class="input-group mb-3">
+                    <input type="text" name="luas" id="luas" class="form-control" placeholder="Luas"
+                        aria-describedby="basic-addon1">
+                </div>
+                <div class="input-group mb-3">
+                    <input type="text" name="foto" id="foto" class="form-control" placeholder="Foto"
+                        aria-describedby="basic-addon1">
+                </div>
+                <div class="input-group mb-3">
+                    <input type="text" name="kapasitas" id="kapasitas" class="form-control" placeholder="Kapasitas"
+                        aria-describedby="basic-addon1">
+                </div>
+                <div class="input-group mb-3">
+                    <input type="text" name="tarif" id="tarif" class="form-control" placeholder="Tarif"
+                        aria-describedby="basic-addon1">
+                </div>
+            </div>
+        </form>
+
+        <div id="result"></div>
+        <button id="convert" class="btn btn-dark col-md-12">Edit GeoJSON</button>
+    </div>
+@endsection
+
+
+@push('addon-script')
+    <script>
+        var map = L.map('map').setView([-0.06304903208178843, 109.35290734591857], 17);
+        L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+
+        @foreach ($post as $key)
+            var drawnItems = L.geoJson(<?php echo $key->GeoJson; ?>).addTo(map);
+
+            drawnItems.eachLayer(function(layer) {
+                layer.bindPopup("<strong>Nama: </strong>" + layer.feature.properties.title + "<br>" +
+                    "<strong>Id: </strong> {{ $key->id }}" + "<br>" +
+                    "<strong>name: </strong>{{ $key->name }}" + "<br>" + "<br>" +
+                    "<a class='label label-warning ' href='{{ route('coba.edit', $key->id) }} '>edit</a>" +
+                    "<br>" +
+                    "<a href='{{ route('coba.destroy', $key->id) }}' id='deleteCompany' data-id='{{ $key->id }}'> Delete </a>"
+                )
+            });
+        @endforeach
+
+        drawnItems.eachLayer(function(layer) {
+            layer.bindPopup(layer.feature.properties.title);
+        });
+
+        map.addLayer(drawnItems);
+        var drawControl = new L.Control.Draw({
+            edit: {
+                featureGroup: drawnItems
+            }
+        });
+        map.addControl(drawControl);
+
+        map.on('draw:created', function(event) {
+            var layer = event.layer,
+                feature = layer.feature = layer.feature || {};
+            feature.type = feature.type || "Feature";
+            var props = feature.properties = feature.properties || {
+                title: $("#title").val(),
+                description: $("#description").val()
+            };
+            drawnItems.addLayer(layer);
+        });
+
+
+        document.getElementById("convert").addEventListener("click", function() {
+            var hasil = $('#result').html(JSON.stringify(drawnItems.toGeoJSON()));
+            var data_geo = document.getElementById('result').innerHTML;
+            if (data_geo == '{"type":"FeatureCollection","features":[]}') {
+                alert('data kosong');
+            } else {
+                ajax_simpan();
+            }
+        });
+
+        function ajax_simpan() {
+            var hasil = (JSON.stringify(drawnItems.toGeoJSON()));
+            let name = $('#name').val();
+            let luas = $('#luas').val();
+            let foto = $('#foto').val();
+            let kapasitas = $('#kapasitas').val();
+            let tarif = $('#tarif').val();
+
+            $.ajaxSetup({
+                headers: {
+                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                }
+            });
+
+            $.ajax({
+                url: "{{ route('coba.store') }}",
+                type: 'POST',
+                data: {
+                    '_method': 'PUT',
+                    'name': name,
+                    'luas': luas,
+                    'foto': foto,
+                    'kapasitas': kapasitas,
+                    'tarif': tarif,
+                    'result': hasil
+                },
+                success: function(data) {
+                    // $('#result').html(data);
+                    window.location = '/coba'
+                }
+            });
+        }
+    </script>
+@endpush
